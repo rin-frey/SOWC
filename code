@@ -1,0 +1,155 @@
+//  data loading and cleaning
+********************************************************************************************
+
+use bi_ed2015.dta, replace
+
+//rename 2015 variables
+
+ren IMR IMR_2015
+ren GNI GNI_2015
+ren lifexp lifexp_2015
+ren litrate litrate_2015
+ren enrlrate enrlrate_2015
+ren cell cell_2015
+ren web web_2015
+ren primrate primrate_2015
+ren OOSrate OOSrate_2015
+ren _merge Merge_1
+
+
+
+merge 1:1 id using final_sowc2005.dta
+
+save bi_ed2015.dta, replace
+
+********************************************************************************************
+//part 2 cleaning and prep
+********************************************************************************************
+
+//  to  do // rrlabel 2005
+foreach v of varlist IMR2005 GNI_2005{
+	replace `v' = subinstr(`v', "-", "",.)
+	destring `v' , replace
+	*replace `v' =round(`v', .01)
+
+}
+
+foreach v of varlist lifexp_2005 litrate_2005 enrlrate_2005{
+	replace `v' = subinstr(`v', "-", "",.)
+	destring `v' , replace
+	*replace `v' =round(`v', .01)
+
+}
+
+
+//save bi_ed2015.dta, replace
+
+replace GNI_2005 = CPIGNI_2005
+// we can remove gni 2005 now
+
+********************************************************************************************
+// sum stats part 2
+********************************************************************************************
+
+hist litrate_2005
+hist litrate_2015
+
+
+gen nl_gni2005 = log(GNI_2005)
+gen nl_gni2015 = log(GNI_2015)
+
+********************************************************************************************
+// sum stats part 2 q 3
+********************************************************************************************
+
+//list litrate_2005 lifexp_2015 nl_gni2005
+
+
+//sum litrate_2005
+//sum litrate_2015
+//sum nl_gni2005
+
+//hist nl_gni2005
+//hist litrate_2005
+//hist litrate_2015
+
+********************************************************************************************
+// part 2 q 4
+********************************************************************************************
+
+twoway scatter litrate_2005 litrate_2015, msize(tiny) || lfit litrate_2005 litrate_2015
+twoway scatter litrate_2005 nl_gni2005, msize(tiny) || lfit litrate_2005 nl_gni2005
+twoway scatter litrate_2015 nl_gni2005, msize(tiny) || lfit litrate_2015 nl_gni2005
+
+********************************************************************************************
+// part 3
+********************************************************************************************
+
+gen gain_literacy = litrate_2015 - litrate_2005
+
+reg nl_gni2005 gain_literacy
+reg litrate_2005 nl_gni2005 litrate_2015
+
+//q 3
+sum GNI_2005
+local mean = r(mean)
+
+
+twoway kdensity litrate_2005 if GNI_2005 <=`mean' || kdensity litrate_2005 if GNI_2005 > `mean', ///
+	legend(label(1 "below mean GNI, literacy rate 2005") label(2 "above mean GNI, literacy rate 2005")) xtitle("gni") ytitle("literacy") name(one, replace) ///
+
+twoway kdensity litrate_2015 if GNI_2005 <=`mean' || kdensity litrate_2015 if GNI_2005 > `mean', ///
+	legend(label(1 "below mean GNI, literacy rate 2015") label(2 "above mean GNI, literacy rate 2015")) xtitle("gni") ytitle("literacy") name(two, replace) ///
+
+
+
+// q 5
+
+center(litrate_2005)
+center(nl_gni2005)
+gen int_gnilit2005 = c_litrate_2005*c_nl_gni2005
+
+reg litrate_2005 nl_gni2005 litrate_2015 int_gnilit2005
+
+// q 5
+su c_nl_gni2005 if c_litrate_2005>-5&c_litrate_2005<5
+su c_nl_gni2005 if c_litrate_2005>15&c_litrate_2005<25
+su c_nl_gni2005 if c_litrate_2005<-15&c_litrate_2005>-25
+
+reg litrate_2015 c_nl_gni2005 c_litrate_2005 int_gnilit2005
+
+twoway  (function y = _b[_cons]+_b[c_nl_gni2005]*x + _b[c_litrate_2005]*0 +_b[int_gnilit2005 ]*0, range(  -1.937382   2.194191)) || ///
+(function y = _b[_cons]+_b[c_nl_gni2005]*x + _b[c_litrate_2005]*20 +_b[int_gnilit2005 ]*x*20, range( -2.360239   2.371332))|| ///
+(function y = _b[_cons]+_b[c_nl_gni2005]*x + _b[c_litrate_2005]*-20 +_b[int_gnilit2005 ]*x*-20, range( -3.002093   -.370204)), ///
+xtitle("centered Log GNI 2005") ytitle("Literacy Rate in 2015") legend(col(1) label(1 "Avg Literacy in 2005") ///
+label(2 "Literacy +20 in 2005")  label(3 "Literacy -20 in 2005") ) ///
+name(interactions, replace)
+
+
+********************************************************************************************
+// part 4
+********************************************************************************************
+
+mi set flong
+mi register imputed GNI_2005 litrate_2005
+mi register regular lifexp_2005 enrlrate_2005 IMR2005
+mi describe
+mi impute chained (reg)GNI_2005 (truncreg, ul(100)) litrate_2005  = lifexp_2005 enrlrate_2005 IMR2005 ///
+, augment force add(5) rseed(30820982)
+
+// log and center variable and create interaction term
+// sum stats for newly created variables
+
+mi passive: g log_gni2005 = log(GNI_2005)
+mi passive: egen c_log_gni2005 = std(log_gni2005)
+
+mi passive: egen z_litrate_2005 = std(c_litrate_2005)
+mi passive: g int_litGNI  = z_litrate_2005*c_log_gni2005
+
+mi xeq: sum c_log_gni2005 z_litrate_2005
+mi estimate: reg litrate_2015 int_gnilit2005 z_litrate_2005 log_gni2005
+
+//q3
+
+reg z_litrate_2005 c_log_gni2005 litrate_2015
+reg z_litrate_2005 c_log_gni2005 litrate_2015 int_gnilit2005
