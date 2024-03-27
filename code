@@ -23,7 +23,7 @@ merge 1:1 id using final_sowc2005.dta
 save bi_ed2015.dta, replace
 
 ********************************************************************************************
-//part 2 cleaning and prep
+// cleaning and prep
 ********************************************************************************************
 
 //  to  do // rrlabel 2005
@@ -48,7 +48,7 @@ replace GNI_2005 = CPIGNI_2005
 // we can remove gni 2005 now
 
 ********************************************************************************************
-// sum stats part 2
+// sum stats
 ********************************************************************************************
 
 hist litrate_2005
@@ -59,7 +59,7 @@ gen nl_gni2005 = log(GNI_2005)
 gen nl_gni2015 = log(GNI_2015)
 
 ********************************************************************************************
-// sum stats part 2 q 3
+// sum stats 
 ********************************************************************************************
 
 //list litrate_2005 lifexp_2015 nl_gni2005
@@ -74,7 +74,7 @@ gen nl_gni2015 = log(GNI_2015)
 //hist litrate_2015
 
 ********************************************************************************************
-// part 2 q 4
+// scatter plots // comparing literacy rates 
 ********************************************************************************************
 
 twoway scatter litrate_2005 litrate_2015, msize(tiny) || lfit litrate_2005 litrate_2015
@@ -82,7 +82,7 @@ twoway scatter litrate_2005 nl_gni2005, msize(tiny) || lfit litrate_2005 nl_gni2
 twoway scatter litrate_2015 nl_gni2005, msize(tiny) || lfit litrate_2015 nl_gni2005
 
 ********************************************************************************************
-// part 3
+// comparing literacy rates against gni, and viewing them in the lens of growth to the 2015 literacy rates
 ********************************************************************************************
 
 gen gain_literacy = litrate_2015 - litrate_2005
@@ -90,7 +90,6 @@ gen gain_literacy = litrate_2015 - litrate_2005
 reg nl_gni2005 gain_literacy
 reg litrate_2005 nl_gni2005 litrate_2015
 
-//q 3
 sum GNI_2005
 local mean = r(mean)
 
@@ -101,17 +100,12 @@ twoway kdensity litrate_2005 if GNI_2005 <=`mean' || kdensity litrate_2005 if GN
 twoway kdensity litrate_2015 if GNI_2005 <=`mean' || kdensity litrate_2015 if GNI_2005 > `mean', ///
 	legend(label(1 "below mean GNI, literacy rate 2015") label(2 "above mean GNI, literacy rate 2015")) xtitle("gni") ytitle("literacy") name(two, replace) ///
 
-
-
-// q 5
-
 center(litrate_2005)
 center(nl_gni2005)
 gen int_gnilit2005 = c_litrate_2005*c_nl_gni2005
 
 reg litrate_2005 nl_gni2005 litrate_2015 int_gnilit2005
 
-// q 5
 su c_nl_gni2005 if c_litrate_2005>-5&c_litrate_2005<5
 su c_nl_gni2005 if c_litrate_2005>15&c_litrate_2005<25
 su c_nl_gni2005 if c_litrate_2005<-15&c_litrate_2005>-25
@@ -127,7 +121,7 @@ name(interactions, replace)
 
 
 ********************************************************************************************
-// part 4
+multiple imputation and subsequent regression 
 ********************************************************************************************
 
 mi set flong
@@ -149,7 +143,6 @@ mi passive: g int_litGNI  = z_litrate_2005*c_log_gni2005
 mi xeq: sum c_log_gni2005 z_litrate_2005
 mi estimate: reg litrate_2015 int_gnilit2005 z_litrate_2005 log_gni2005
 
-//q3
 
 reg z_litrate_2005 c_log_gni2005 litrate_2015
 reg z_litrate_2005 c_log_gni2005 litrate_2015 int_gnilit2005
